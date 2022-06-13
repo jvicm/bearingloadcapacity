@@ -1,4 +1,5 @@
 import pint
+import numpy as np
 import math
 
 # maps quantity dimensionality to desired output units
@@ -21,29 +22,31 @@ class IncorrectUnit(Exception):
 
 #
 class BearingSolution():
-    def __init__(self, conv_div_ratio, diametric_clearance, groove_width, length, 
-            number_of_grooves, shaft_diameter, shaft_speed, support_load, viscosity):
-        
-        self._eccentricity = 0.0904 * ureg.mm
+    def __init__(self, diametric_clearance, groove_width, length, number_of_grooves, shaft_diameter, \
+        shaft_speed, viscosity):
 
-
-        self.conv_div_ratio = conv_div_ratio
+        # 
         self._diametric_clearance = self._input_check(diametric_clearance_check=diametric_clearance)
-        self._eccentricity = eccentricity
-        self._groove_width = groove_width
+        self.groove_width = groove_width
         self.length = length
         self.number_of_grooves = number_of_grooves
         self.shaft_diameter = shaft_diameter
         self.shaft_speed = shaft_speed
-        self.support_load = support_load
         self.viscosity = viscosity
         
         self.iterations = self.get_iterations()
-
-    def get_iterations(self, conv_div_ratio, diametric_clearance, eccentricity, groove_width, length, 
-            number_of_grooves, shaft_diameter, shaft_speed, support_load, viscosity):
-        pass
-
+            
+    #
+    def get_iterations(self):
+        iterations = []
+        eccentricity = 0.0904 * ureg.mm
+        for l in np.arange(0.01, 0.99, 0.01):
+            conv_div_ratio = l 
+            new_iteration = BearingIteration(conv_div_ratio, self.diametric_clearance, eccentricity, \
+                self.groove_width, self.length, self.number_of_grooves, self.shaft_diameter, \
+                self.shaft_speed, self.viscosity)
+            iterations.append(new_iteration)
+        return iterations
 
     # diametric clearance getter function
     @property
@@ -70,7 +73,6 @@ class BearingSolution():
             raise IncorrectUnit(inputs_check)
         else:
             self._eccentricity = new_eccentricity
-        self._update_pads()
 
     # diametric clearance setter function
     @diametric_clearance.setter
@@ -93,7 +95,6 @@ class BearingSolution():
             raise IncorrectUnit(inputs_check)
         else:
             self._groove_width = new_groove_width
-        self._update_pads()
 
     # 
     def _input_check(self, **kwargs):
@@ -114,7 +115,9 @@ class BearingSolution():
 class BearingIteration():
     def __init__(self, conv_div_ratio, diametric_clearance, eccentricity, groove_width, length, 
             number_of_grooves, shaft_diameter, shaft_speed, viscosity):
-        #
+        # iterated attributes
+        self.eccentricity = eccentricity
+        self.conv_div_ratio = conv_div_ratio
         self.radial_clearance = self.radial_clearance(diametric_clearance)
         self.eccentricity_ratio = self.eccentricity_ratio(eccentricity, self.radial_clearance)
         self.groove_angle = self.groove_angle(groove_width, shaft_diameter, diametric_clearance)
@@ -278,11 +281,11 @@ number_of_grooves = 12
 shaft_speed = 200 * ureg.rpm
 diametric_clearance = 0.2 * ureg.mm
 groove_width = 10 * ureg.mm
-start_ratio = 0.4
 bearing_length = 600 * ureg.mm
 viscosity = 0.009967 * ureg.poise
 
-calc = BearingIteration(start_ratio, diametric_clearance, eccentricity, groove_width, 
-    bearing_length, number_of_grooves, shaft_diameter, shaft_speed, viscosity)
+calc = BearingSolution(diametric_clearance, groove_width, bearing_length, number_of_grooves, \
+    shaft_diameter, shaft_speed, viscosity)
 
-print(calc.pads[1].load_capacity.to('N'))
+print(calc.iterations[39].conv_div_ratio)
+print(calc.iterations[39].load_capacity.to('N'))
