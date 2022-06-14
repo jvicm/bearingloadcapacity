@@ -1,12 +1,8 @@
 import pint
 import numpy as np
 import math
-
-# maps quantity dimensionality to desired output units
-OUTPUT_UNITS = {'[length]': 'mm', '[length] * [mass] / [time] ** 2': 'N', '[length] / [time]': 'm/s',
-                '[angle]': 'deg', '1 / [time]': 'rpm', '[mass] / [length] / [time]': 'poise'}
-#
-OUTPUT_PRECISION = 4
+from matplotlib import pyplot as plt
+from scipy.optimize import fsolve
 
 #
 class IncorrectUnit(Exception):
@@ -287,5 +283,26 @@ viscosity = 0.009967 * ureg.poise
 calc = BearingSolution(diametric_clearance, groove_width, bearing_length, number_of_grooves, \
     shaft_diameter, shaft_speed, viscosity)
 
-print(calc.iterations[39].conv_div_ratio)
-print(calc.iterations[39].load_capacity.to('N'))
+
+ratio = []
+load = []
+for iter in calc.iterations:
+    ratio.append(iter.conv_div_ratio)
+    load.append(iter.load_capacity.to('N').magnitude)
+
+curve = np.polyfit(ratio, load, 4)
+trend = np.poly1d(curve)
+
+
+der = np.polyder(trend)
+
+print(der.roots)
+
+
+plt.plot(ratio, load, 'o')
+plt.plot(0.533957, trend(0.533957), 'o', color='red')
+plt.plot(ratio, trend(ratio))
+plt.plot(ratio, der(ratio))
+plt.show()
+
+
