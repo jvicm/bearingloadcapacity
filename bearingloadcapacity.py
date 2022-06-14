@@ -1,9 +1,10 @@
+from matplotlib.collections import LineCollection
 import pint
 import numpy as np
 import math
 from matplotlib import pyplot as plt
-from scipy.optimize import fsolve
-
+from matplotlib.collections import PolyCollection
+from scipy.stats import poisson
 #
 class IncorrectUnit(Exception):
     def __init__(self, inputs, message='Input for the following function was found to be incorrect:'):
@@ -34,15 +35,19 @@ class BearingSolution():
             
     #
     def get_iterations(self):
-        iterations = []
-        eccentricity = 0.0904 * ureg.mm
-        for l in np.arange(0.01, 0.99, 0.01):
-            conv_div_ratio = l 
-            new_iteration = BearingIteration(conv_div_ratio, self.diametric_clearance, eccentricity, \
-                self.groove_width, self.length, self.number_of_grooves, self.shaft_diameter, \
-                self.shaft_speed, self.viscosity)
-            iterations.append(new_iteration)
-        return iterations
+        solutions = []
+        eccentricity_upper_limit = (self.diametric_clearance / 2) + (0.01 * ureg.mm)
+        for i in np.arange(0.01, eccentricity_upper_limit.to('mm').magnitude, 0.01):
+            eccentricity = i * ureg.mm
+            iterations = []
+            for j in np.arange(0.01, 0.99, 0.01):
+                conv_div_ratio = j 
+                new_iteration = BearingIteration(conv_div_ratio, self.diametric_clearance, eccentricity, \
+                    self.groove_width, self.length, self.number_of_grooves, self.shaft_diameter, \
+                    self.shaft_speed, self.viscosity)
+                iterations.append(new_iteration)
+            solutions.append(iterations)
+        return solutions
 
     # diametric clearance getter function
     @property
@@ -283,26 +288,45 @@ viscosity = 0.009967 * ureg.poise
 calc = BearingSolution(diametric_clearance, groove_width, bearing_length, number_of_grooves, \
     shaft_diameter, shaft_speed, viscosity)
 
-
-ratio = []
-load = []
-for iter in calc.iterations:
-    ratio.append(iter.conv_div_ratio)
-    load.append(iter.load_capacity.to('N').magnitude)
-
-curve = np.polyfit(ratio, load, 4)
-trend = np.poly1d(curve)
+ax = plt.figure().add_subplot(projection='3d')
 
 
-der = np.polyder(trend)
+verts = []
+zs = range(1, 11, 1)
+for sol in calc.iterations:
+    ratio = []
+    load = []
+    for iter in sol: 
+        ratio.append(iter.conv_div_ratio)
+        load.append(iter.load_capacity.to('N').magnitude)
+    verts.append(list(zip(ratio, load)))
+    # curve = np.polyfit(ratio, load, 4)
+    # print(curve)
+    # trend = np.poly1d(curve)
+    # verts.append(trend)
 
-print(der.roots)
 
 
-plt.plot(ratio, load, 'o')
-plt.plot(0.533957, trend(0.533957), 'o', color='red')
-plt.plot(ratio, trend(ratio))
-plt.plot(ratio, der(ratio))
+poly = LineCollection(verts)
+ax.set(xlim=(0, 1), ylim=(0, 11), zlim=(0, 160000))
+ax.add_collection3d(poly, zs=zs, zdir='y')
 plt.show()
+
+
+
+# Fixing random state for reproducibility
+
+
+
+
+
+# print(der.roots)
+
+
+# plt.plot(ratio, load, 'o')
+# #plt.plot(der.roots[1], trend(der.roots[1]), 'o', color='red')
+# plt.plot(ratio, trend(ratio))
+# # plt.plot(ratio, der(ratio))
+# plt.show()
 
 
