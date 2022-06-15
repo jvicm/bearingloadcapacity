@@ -4,8 +4,9 @@ import numpy as np
 import math
 from matplotlib import pyplot as plt
 
+#
 NUM_ECC_ITER = 20
-
+POLY_DEG_FIT = 4
 #
 class IncorrectUnit(Exception):
     def __init__(self, inputs, message='Input for the following function was found to be incorrect:'):
@@ -49,7 +50,7 @@ class BearingSolution():
                     self.groove_width, self.length, self.number_of_grooves, self.shaft_diameter, \
                     self.shaft_speed, self.viscosity)
                 iterations.append(new_iteration)
-            solutions.append(iterations)
+            solutions.append((eccentricity,iterations))
         return solutions
 
     # diametric clearance getter function
@@ -100,7 +101,7 @@ class BearingSolution():
         else:
             self._groove_width = new_groove_width
 
-    # 
+    #  
     def _input_check(self, **kwargs):
         input_checks = []
         for key, value in kwargs.items():
@@ -115,12 +116,30 @@ class BearingSolution():
             key = [*kwargs][0]
             checked_inputs = kwargs[key]
         return checked_inputs
+
+    # 
+    def get_ecc_load_curve(self):
+        # 
+        
+        for iteration in self.iterations:
+            eccentricity = iteration[0]
+            conv_div_ratio = []
+            load_capacity = []
+            for ratio_iteration in iteration[1]:
+                conv_div_ratio.append(ratio_iteration.conv_div_ratio)
+                load_capacity.append(ratio_iteration.load_capacity)
+            # finds the coefficients for the poly line approximation
+            print(len(conv_div_ratio), len(load_capacity))
+            coeff = np.polynomial.Polynomial.fit(conv_div_ratio, load_capacity, POLY_DEG_FIT)
+            poly = np.polynomial.Polynomial(coeff)
+            print(poly)
+
 #
 class BearingIteration():
     def __init__(self, conv_div_ratio, diametric_clearance, eccentricity, groove_width, length, 
             number_of_grooves, shaft_diameter, shaft_speed, viscosity):
-        # iterated attributes
-        self.eccentricity = eccentricity
+        # 
+
         self.conv_div_ratio = conv_div_ratio
         self.radial_clearance = self.radial_clearance(diametric_clearance)
         self.eccentricity_ratio = self.eccentricity_ratio(eccentricity, self.radial_clearance)
@@ -208,7 +227,6 @@ class BearingIteration():
     # finds the load center for a given pad
     def load_center(self, film_ratio, pad_arc_length):
         a = film_ratio * ((film_ratio + 2) / (film_ratio - 1)) * math.log(film_ratio)
-        print(film_ratio, a, self.eccentricity)
         b = (5 / 2) * (film_ratio - 1)
         c = (film_ratio + 1) * math.log(film_ratio)
         d = 2 * (film_ratio - 1)
@@ -292,5 +310,4 @@ viscosity = 0.009967 * ureg.poise
 calc = BearingSolution(diametric_clearance, groove_width, bearing_length, number_of_grooves, \
     shaft_diameter, shaft_speed, viscosity)
 
-for iter in calc.iterations:
-    print(iter[0].eccentricity)
+calc.get_ecc_load_curve()
