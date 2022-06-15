@@ -3,8 +3,9 @@ import pint
 import numpy as np
 import math
 from matplotlib import pyplot as plt
-from matplotlib.collections import PolyCollection
-from scipy.stats import poisson
+
+NUM_ECC_ITER = 20
+
 #
 class IncorrectUnit(Exception):
     def __init__(self, inputs, message='Input for the following function was found to be incorrect:'):
@@ -36,8 +37,10 @@ class BearingSolution():
     #
     def get_iterations(self):
         solutions = []
-        eccentricity_upper_limit = (self.diametric_clearance / 2) + (0.01 * ureg.mm)
-        for i in np.arange(0.01, eccentricity_upper_limit.to('mm').magnitude, 0.01):
+        eccentricity_lower_limit = (self.diametric_clearance / (2 * NUM_ECC_ITER))
+        eccentricity_upper_limit = (self.diametric_clearance / 2) 
+        eccentricity_step = (eccentricity_upper_limit.to('mm').magnitude - eccentricity_lower_limit.to('mm').magnitude) / (NUM_ECC_ITER - 1)
+        for i in np.arange(eccentricity_lower_limit.to('mm').magnitude, eccentricity_upper_limit.to('mm').magnitude, eccentricity_step):
             eccentricity = i * ureg.mm
             iterations = []
             for j in np.arange(0.01, 0.99, 0.01):
@@ -128,7 +131,7 @@ class BearingIteration():
         self.pads = self.construct_pads(conv_div_ratio, number_of_grooves, viscosity, length)  
         self.load_capacity = self.bearing_load_capacity()
   
-    #
+    # 
     def construct_pads(self, conv_div_ratio, number_of_grooves, viscosity, length):
         pads = []
         upper_limit = int(number_of_grooves / 2) + 1
@@ -205,6 +208,7 @@ class BearingIteration():
     # finds the load center for a given pad
     def load_center(self, film_ratio, pad_arc_length):
         a = film_ratio * ((film_ratio + 2) / (film_ratio - 1)) * math.log(film_ratio)
+        print(film_ratio, a, self.eccentricity)
         b = (5 / 2) * (film_ratio - 1)
         c = (film_ratio + 1) * math.log(film_ratio)
         d = 2 * (film_ratio - 1)
@@ -288,45 +292,5 @@ viscosity = 0.009967 * ureg.poise
 calc = BearingSolution(diametric_clearance, groove_width, bearing_length, number_of_grooves, \
     shaft_diameter, shaft_speed, viscosity)
 
-ax = plt.figure().add_subplot(projection='3d')
-
-
-verts = []
-zs = range(1, 11, 1)
-for sol in calc.iterations:
-    ratio = []
-    load = []
-    for iter in sol: 
-        ratio.append(iter.conv_div_ratio)
-        load.append(iter.load_capacity.to('N').magnitude)
-    verts.append(list(zip(ratio, load)))
-    # curve = np.polyfit(ratio, load, 4)
-    # print(curve)
-    # trend = np.poly1d(curve)
-    # verts.append(trend)
-
-
-
-poly = LineCollection(verts)
-ax.set(xlim=(0, 1), ylim=(0, 11), zlim=(0, 160000))
-ax.add_collection3d(poly, zs=zs, zdir='y')
-plt.show()
-
-
-
-# Fixing random state for reproducibility
-
-
-
-
-
-# print(der.roots)
-
-
-# plt.plot(ratio, load, 'o')
-# #plt.plot(der.roots[1], trend(der.roots[1]), 'o', color='red')
-# plt.plot(ratio, trend(ratio))
-# # plt.plot(ratio, der(ratio))
-# plt.show()
-
-
+for iter in calc.iterations:
+    print(iter[0].eccentricity)
