@@ -5,8 +5,8 @@ import math
 from matplotlib import pyplot as plt
 
 #
-NUM_ECC_ITER = 20
-POLY_DEG_FIT = 4
+NUM_ECC_ITER = 100
+POLY_DEG_FIT = 5
 #
 class IncorrectUnit(Exception):
     def __init__(self, inputs, message='Input for the following function was found to be incorrect:'):
@@ -120,26 +120,41 @@ class BearingSolution():
     # 
     def get_ecc_load_curve(self):
         # 
-        
+        eccentricity_points = []
+        min_load_points = []
         for iteration in self.iterations:
             eccentricity = iteration[0]
             conv_div_ratio = []
             load_capacity = []
             for ratio_iteration in iteration[1]:
                 conv_div_ratio.append(ratio_iteration.conv_div_ratio)
-                load_capacity.append(ratio_iteration.load_capacity)
-            # finds the coefficients for the poly line approximation
-            print(len(conv_div_ratio), len(load_capacity))
-            coeff = np.polynomial.Polynomial.fit(conv_div_ratio, load_capacity, POLY_DEG_FIT)
+                load_capacity.append(ratio_iteration.load_capacity.to('N').magnitude)
+            coeff = np.polynomial.polynomial.polyfit(conv_div_ratio, load_capacity, POLY_DEG_FIT)
+            
             poly = np.polynomial.Polynomial(coeff)
-            print(poly)
+            # plt.plot(conv_div_ratio, load_capacity)
+            # plt.plot(conv_div_ratio, [poly(ratio) for ratio in conv_div_ratio])
+            # plt.show()
+            # derivative of solution curve at constant eccentricity
+            poly_deriv = poly.deriv()
+            # roots of the solution derivative
+            poly_deriv_roots = poly_deriv.roots()
+            min_root = None
+            for root in poly_deriv_roots:
+                if min_root == None and poly(root) >= 0:
+                    min_root = root
+                elif poly(root) >=0 and poly(root) < poly(min_root):
+                    min_root = root
+            min_load = poly(min_root) * ureg.N
+            eccentricity_points.append(eccentricity)
+            min_load_points.append(min_load)
+        return [eccentricity_points, min_load_points]            
 
 #
 class BearingIteration():
     def __init__(self, conv_div_ratio, diametric_clearance, eccentricity, groove_width, length, 
             number_of_grooves, shaft_diameter, shaft_speed, viscosity):
         # 
-
         self.conv_div_ratio = conv_div_ratio
         self.radial_clearance = self.radial_clearance(diametric_clearance)
         self.eccentricity_ratio = self.eccentricity_ratio(eccentricity, self.radial_clearance)
@@ -300,7 +315,7 @@ class BearingPad():
 
 ureg = pint.UnitRegistry()
 shaft_diameter = 600 * ureg.mm
-number_of_grooves = 12
+number_of_grooves = 30
 shaft_speed = 200 * ureg.rpm
 diametric_clearance = 0.2 * ureg.mm
 groove_width = 10 * ureg.mm
@@ -310,4 +325,10 @@ viscosity = 0.009967 * ureg.poise
 calc = BearingSolution(diametric_clearance, groove_width, bearing_length, number_of_grooves, \
     shaft_diameter, shaft_speed, viscosity)
 
-calc.get_ecc_load_curve()
+points = calc.get_ecc_load_curve()
+
+x_val = [ecc_val.to('mm').magnitude for ecc_val in points[0]]
+y_val = [load_val.to('lbf').magnitude for load_val in points[1]]
+
+plt.plot(x_val, y_val, 'o')
+plt.show()
