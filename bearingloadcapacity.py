@@ -5,7 +5,7 @@ import math
 from matplotlib import pyplot as plt
 
 #
-NUM_ECC_ITER = 100
+NUM_ECC_ITER = 20
 POLY_DEG_FIT = 5
 #
 class IncorrectUnit(Exception):
@@ -330,5 +330,10 @@ points = calc.get_ecc_load_curve()
 x_val = [ecc_val.to('mm').magnitude for ecc_val in points[0]]
 y_val = [load_val.to('lbf').magnitude for load_val in points[1]]
 
+coeff = np.polynomial.polynomial.polyfit(x_val, y_val, 10)
+poly = np.polynomial.Polynomial(coeff)
+
 plt.plot(x_val, y_val, 'o')
+plt.plot(x_val, [poly(val) for val in x_val])
 plt.show()
+
