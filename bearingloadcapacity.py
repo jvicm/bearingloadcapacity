@@ -3,6 +3,7 @@ import pint
 import numpy as np
 import math
 from matplotlib import pyplot as plt
+from scipy.optimize import curve_fit
 
 #
 NUM_ECC_ITER = 20
@@ -312,28 +313,47 @@ class BearingPad():
         self.trailing_angle = trailing_angle
         self.trailing_film_thickness = trailing_film_thickness
 
+# exponential function with transformation
+def expFunc(x, a, b, c):
+    return a * np.exp(b * x) + c
+
+
+
 
 ureg = pint.UnitRegistry()
-shaft_diameter = 600 * ureg.mm
-number_of_grooves = 30
-shaft_speed = 200 * ureg.rpm
-diametric_clearance = 0.2 * ureg.mm
-groove_width = 10 * ureg.mm
-bearing_length = 600 * ureg.mm
-viscosity = 0.009967 * ureg.poise
 
-calc = BearingSolution(diametric_clearance, groove_width, bearing_length, number_of_grooves, \
-    shaft_diameter, shaft_speed, viscosity)
+def main():
+    
+    shaft_diameter = 600 * ureg.mm
+    number_of_grooves = 30
+    shaft_speed = 200 * ureg.rpm
+    diametric_clearance = 0.2 * ureg.mm
+    groove_width = 10 * ureg.mm
+    bearing_length = 600 * ureg.mm
+    viscosity = 0.009967 * ureg.poise
 
-points = calc.get_ecc_load_curve()
+    calc = BearingSolution(diametric_clearance, groove_width, bearing_length, number_of_grooves, \
+        shaft_diameter, shaft_speed, viscosity)
 
-x_val = [ecc_val.to('mm').magnitude for ecc_val in points[0]]
-y_val = [load_val.to('lbf').magnitude for load_val in points[1]]
+    points = calc.get_ecc_load_curve()
 
-coeff = np.polynomial.polynomial.polyfit(x_val, y_val, 10)
-poly = np.polynomial.Polynomial(coeff)
+    x_val = [ecc_val.to('mm').magnitude for ecc_val in points[0]]
+    y_val = [load_val.to('lbf').magnitude for load_val in points[1]]
 
-plt.plot(x_val, y_val, 'o')
-plt.plot(x_val, [poly(val) for val in x_val])
-plt.show()
+    popt, pcov = curve_fit(expFunc, x_val, y_val)
+    print(type(popt))
+
+    coeff = np.polynomial.polynomial.polyfit(x_val, y_val, 1)
+    poly = np.polynomial.Polynomial(coeff)
+
+    plt.plot(x_val, expFunc(x_val, popt[0], popt[1], popt[2]))
+    plt.plot(x_val, y_val, 'o')
+    plt.plot(x_val, [poly(val) for val in x_val])
+    plt.show()
+
+if __name__ == '__main__':
+    main()
+
+
+
 
