@@ -1,3 +1,4 @@
+from threading import Thread
 from matplotlib.collections import LineCollection
 import pint
 import numpy as np
@@ -6,7 +7,7 @@ from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 
 #
-NUM_ECC_ITER = 20
+NUM_ECC_ITER = 10
 POLY_DEG_FIT = 5
 #
 class IncorrectUnit(Exception):
@@ -36,23 +37,44 @@ class BearingSolution():
         
         self.iterations = self.get_iterations()
             
+
+
     #
     def get_iterations(self):
-        solutions = []
+        results = [None] * NUM_ECC_ITER
+        iter_threads = []
         eccentricity_lower_limit = (self.diametric_clearance / (2 * NUM_ECC_ITER))
         eccentricity_upper_limit = (self.diametric_clearance / 2) 
         eccentricity_step = (eccentricity_upper_limit.to('mm').magnitude - eccentricity_lower_limit.to('mm').magnitude) / (NUM_ECC_ITER - 1)
+        thread_count = 0
         for i in np.arange(eccentricity_lower_limit.to('mm').magnitude, eccentricity_upper_limit.to('mm').magnitude, eccentricity_step):
             eccentricity = i * ureg.mm
-            iterations = []
             for j in np.arange(0.01, 0.99, 0.01):
+                
+                thread_count += 1
                 conv_div_ratio = j 
+                iter_threads[] = Thread(target=self.thread_iteration, args=(conv_div_ratio, eccentricity, \
+                    thread_num, results))
                 new_iteration = BearingIteration(conv_div_ratio, self.diametric_clearance, eccentricity, \
                     self.groove_width, self.length, self.number_of_grooves, self.shaft_diameter, \
                     self.shaft_speed, self.viscosity)
                 iterations.append(new_iteration)
+
+            # loops through and joins all threads
+            for i in range(len(iter_threads)):
+                iter_threads[i].join()
+
             solutions.append((eccentricity,iterations))
+        
+
+
         return solutions
+
+    def thread_iteration(self, conv_div_ratio, eccentricity, thread_num, results):
+        new_iteration = BearingIteration(conv_div_ratio, self.diametric_clearance, eccentricity, \
+            self.groove_width, self.length, self.number_of_grooves, self.shaft_diameter, \
+            self.shaft_speed, self.viscosity)
+        results[thread_num] = new_iteration
 
     # diametric clearance getter function
     @property
@@ -341,14 +363,15 @@ def main():
     y_val = [load_val.to('lbf').magnitude for load_val in points[1]]
 
     popt, pcov = curve_fit(expFunc, x_val, y_val)
-    print(type(popt))
+    print(popt)
 
-    coeff = np.polynomial.polynomial.polyfit(x_val, y_val, 1)
-    poly = np.polynomial.Polynomial(coeff)
+    # coeff = np.polynomial.polynomial.polyfit(x_val, y_val, 1)
+    # poly = np.polynomial.Polynomial(coeff)
 
-    plt.plot(x_val, expFunc(x_val, popt[0], popt[1], popt[2]))
+
+    # plt.plot(x_val, expFunc(x_val, popt[0], popt[1], popt[2]))
     plt.plot(x_val, y_val, 'o')
-    plt.plot(x_val, [poly(val) for val in x_val])
+    plt.plot(x_val, [expFunc(x, popt[0], popt[1], popt[2]) for x in x_val])
     plt.show()
 
 if __name__ == '__main__':
