@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 
 #
-NUM_ECC_ITER = 25
+NUM_ECC_ITER = 10
 POLY_DEG_FIT = 5
 #
 class IncorrectUnit(Exception):
@@ -37,7 +37,13 @@ class BearingSolution():
         
         self.iterations = self.get_iterations()
             
-
+    #
+    def hydrodynamic_regime(self):
+        hydrodynamic = False
+        regime_parameter = min_film_thick / (((rms_shaft_finish**2) + (rms_bearing_finish**2))**(0.5))
+        if regime_parameter > 5:
+            hydrodynamic = True
+        return hydrodynamic
 
     #
     def get_iterations(self):
