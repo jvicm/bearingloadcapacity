@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 
 #
-NUM_ECC_ITER = 10
+NUM_ECC_ITER = 25
 POLY_DEG_FIT = 5
 #
 class IncorrectUnit(Exception):
@@ -38,12 +38,12 @@ class BearingSolution():
         self.iterations = self.get_iterations()
             
     #
-    def hydrodynamic_regime(self):
-        hydrodynamic = False
-        regime_parameter = min_film_thick / (((rms_shaft_finish**2) + (rms_bearing_finish**2))**(0.5))
-        if regime_parameter > 5:
-            hydrodynamic = True
-        return hydrodynamic
+    # def hydrodynamic_regime(self):
+    #     hydrodynamic = False
+    #     regime_parameter = min_film_thick / (((rms_shaft_finish**2) + (rms_bearing_finish**2))**(0.5))
+    #     if regime_parameter > 5:
+    #         hydrodynamic = True
+    #     return hydrodynamic
 
     #
     def get_iterations(self):
@@ -53,6 +53,7 @@ class BearingSolution():
         # find iteration limits for eccentricity
         eccentricity_lower_limit = (self.diametric_clearance / (2 * NUM_ECC_ITER))
         eccentricity_upper_limit = (self.diametric_clearance / 2) 
+        print(eccentricity_lower_limit, eccentricity_upper_limit)
         eccentricity_step = (eccentricity_upper_limit.to('mm').magnitude - eccentricity_lower_limit.to('mm').magnitude) / (NUM_ECC_ITER - 1)
         # 
         thread_num = 0
@@ -376,7 +377,17 @@ def main():
 
     # plt.plot(x_val, expFunc(x_val, popt[0], popt[1], popt[2]))
     plt.plot(x_val, y_val, 'o')
-    plt.plot(x_val, [expFunc(x, popt[0], popt[1], popt[2]) for x in x_val])
+    # plt.plot(x_val, [expFunc(x, popt[0], popt[1], popt[2]) for x in x_val])
+    x_val = [x for x in np.arange(0.0001, 0.1, 0.0001)]
+    y_val = [expFunc(x, popt[0], popt[1], popt[2]) for x in np.arange(0.0001, 0.1, 0.0001)]
+    plt.plot(x_val, y_val)
+    plt.title("Bearing Load Capacity")
+    plt.xlabel('Eccentricity (mm)')
+    plt.ylabel('Load (N)')
+    plt.minorticks_on()
+
+    plt.grid(which='major', color='#666666')
+    plt.grid(which='minor', color='#999999')
     plt.show()
 
 if __name__ == '__main__':
