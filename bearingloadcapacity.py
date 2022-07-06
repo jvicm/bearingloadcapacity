@@ -53,7 +53,6 @@ class BearingSolution():
         # find iteration limits for eccentricity
         eccentricity_lower_limit = (self.diametric_clearance / (2 * NUM_ECC_ITER))
         eccentricity_upper_limit = (self.diametric_clearance / 2) 
-        print(eccentricity_lower_limit, eccentricity_upper_limit)
         eccentricity_step = (eccentricity_upper_limit.to('mm').magnitude - eccentricity_lower_limit.to('mm').magnitude) / (NUM_ECC_ITER - 1)
         # 
         thread_num = 0
@@ -90,7 +89,7 @@ class BearingSolution():
     # eccentricity getter function
     @property
     def eccentricity(self):
-        return self._eccentricity
+        return self.eccentricity
 
     # groove width getter function
     @property
@@ -161,15 +160,23 @@ class BearingSolution():
             coeff = np.polynomial.polynomial.polyfit(conv_div_ratio, load_capacity, POLY_DEG_FIT)
             
             poly = np.polynomial.Polynomial(coeff)
-            # plt.plot(conv_div_ratio, load_capacity)
-            # plt.plot(conv_div_ratio, [poly(ratio) for ratio in conv_div_ratio])
-            # plt.show()
+            plt.plot(conv_div_ratio, load_capacity)
+            plt.plot(conv_div_ratio, [poly(ratio) for ratio in conv_div_ratio])
+            plt.title("Eccentricity =" + str(eccentricity))
+            plt.xlabel('Lambda')
+            plt.ylabel('Load (N)')
+            plt.minorticks_on()
+
+            plt.grid(which='major', color='#666666')
+            plt.grid(which='minor', color='#999999')
+
             # derivative of solution curve at constant eccentricity
             poly_deriv = poly.deriv()
             # roots of the solution derivative
             poly_deriv_roots = poly_deriv.roots()
+            filtered_roots = list(filter(lambda root: root > 0 and root < 1, poly_deriv_roots))
             min_root = None
-            for root in poly_deriv_roots:
+            for root in filtered_roots:
                 if min_root == None and poly(root) >= 0:
                     min_root = root
                 elif poly(root) >=0 and poly(root) < poly(min_root):
@@ -177,6 +184,8 @@ class BearingSolution():
             min_load = poly(min_root) * ureg.N
             eccentricity_points.append(eccentricity)
             min_load_points.append(min_load)
+            print(min_root, min_load)
+            plt.show()
         return [eccentricity_points, min_load_points]            
 
 #
@@ -366,7 +375,10 @@ def main():
     points = calc.get_ecc_load_curve()
 
     x_val = [ecc_val.to('mm').magnitude for ecc_val in points[0]]
-    y_val = [load_val.to('lbf').magnitude for load_val in points[1]]
+    y_val = [load_val.to('N').magnitude for load_val in points[1]]
+
+    for i in range(0, len(x_val)):
+        print(x_val[i], y_val[i])
 
     popt, pcov = curve_fit(expFunc, x_val, y_val)
     print(popt)
