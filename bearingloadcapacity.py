@@ -1,5 +1,4 @@
 from threading import Thread
-from matplotlib.collections import LineCollection
 import pint
 import numpy as np
 import math
@@ -7,8 +6,10 @@ from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 
 #
-NUM_ECC_ITER = 25
+NUM_ECC_ITER = 7
 POLY_DEG_FIT = 5
+ITER_GRAPH_FLAG = True
+
 #
 class IncorrectUnit(Exception):
     def __init__(self, inputs, message='Input for the following function was found to be incorrect:'):
@@ -21,7 +22,7 @@ class IncorrectUnit(Exception):
                 inputs_str = inputs_str + str(input_var)
         super().__init__(message + inputs_str)
 
-#
+# 
 class BearingSolution():
     def __init__(self, diametric_clearance, groove_width, length, number_of_grooves, shaft_diameter, \
         shaft_speed, viscosity):
@@ -36,14 +37,6 @@ class BearingSolution():
         self.viscosity = viscosity
         
         self.iterations = self.get_iterations()
-            
-    #
-    # def hydrodynamic_regime(self):
-    #     hydrodynamic = False
-    #     regime_parameter = min_film_thick / (((rms_shaft_finish**2) + (rms_bearing_finish**2))**(0.5))
-    #     if regime_parameter > 5:
-    #         hydrodynamic = True
-    #     return hydrodynamic
 
     #
     def get_iterations(self):
@@ -86,27 +79,6 @@ class BearingSolution():
     def diametric_clearance(self):
         return self._diametric_clearance
 
-    # eccentricity getter function
-    @property
-    def eccentricity(self):
-        return self.eccentricity
-
-    # groove width getter function
-    @property
-    def groove_width(self):
-        return self._groove_width
-
-    # eccentricity setter function
-    @eccentricity.setter
-    def eccentricity(self, new_eccentricity):
-        inputs_check = []
-        new_eccentricity.to_base_units()
-        if new_eccentricity.dimensionality != '[length]':
-            inputs_check.append('BearingLoadCapacityCalculator() <- eccentricity')
-            raise IncorrectUnit(inputs_check)
-        else:
-            self._eccentricity = new_eccentricity
-
     # diametric clearance setter function
     @diametric_clearance.setter
     def diametric_clearance(self, new_diametric_clearance):
@@ -117,17 +89,6 @@ class BearingSolution():
             raise IncorrectUnit(inputs_check)
         else:
             self._diametric_clearance = new_diametric_clearance
-
-    # groove width setter function
-    @groove_width.setter
-    def groove_width(self, new_groove_width):
-        inputs_check = []
-        new_groove_width.to_base_units()
-        if new_groove_width.dimensionality != '[length]':
-            inputs_check.append('BearingLoadCapacityCalculator() <- groove_width')
-            raise IncorrectUnit(inputs_check)
-        else:
-            self._groove_width = new_groove_width
 
     #  
     def _input_check(self, **kwargs):
@@ -150,6 +111,7 @@ class BearingSolution():
         # 
         eccentricity_points = []
         min_load_points = []
+
         for iteration in self.iterations:
             eccentricity = iteration[0]
             conv_div_ratio = []
@@ -160,15 +122,9 @@ class BearingSolution():
             coeff = np.polynomial.polynomial.polyfit(conv_div_ratio, load_capacity, POLY_DEG_FIT)
             
             poly = np.polynomial.Polynomial(coeff)
-            plt.plot(conv_div_ratio, load_capacity)
-            plt.plot(conv_div_ratio, [poly(ratio) for ratio in conv_div_ratio])
-            plt.title("Eccentricity =" + str(eccentricity))
-            plt.xlabel('Lambda')
-            plt.ylabel('Load (N)')
-            plt.minorticks_on()
-
-            plt.grid(which='major', color='#666666')
-            plt.grid(which='minor', color='#999999')
+            if ITER_GRAPH_FLAG == True:
+                # plt.plot(conv_div_ratio, load_capacity)
+                plt.plot(conv_div_ratio, [poly(ratio) for ratio in conv_div_ratio], label="e =" + str(round(eccentricity, 3)))
 
             # derivative of solution curve at constant eccentricity
             poly_deriv = poly.deriv()
@@ -184,8 +140,17 @@ class BearingSolution():
             min_load = poly(min_root) * ureg.N
             eccentricity_points.append(eccentricity)
             min_load_points.append(min_load)
-            print(min_root, min_load)
-            plt.show()
+
+        if ITER_GRAPH_FLAG == True:
+            plt.title('Bearing Load Capacity')
+            plt.xlabel('Lambda')
+            plt.ylabel('Load (N)')
+            plt.minorticks_on()
+            plt.grid(which='major', color='#666666')
+            plt.grid(which='minor', color='#999999')
+            plt.legend()
+            plt.savefig('output.pdf')
+            plt.clf()
         return [eccentricity_points, min_load_points]            
 
 #
@@ -202,7 +167,15 @@ class BearingIteration():
         self.peripheral_velocity = self.peripheral_velocity(shaft_diameter, shaft_speed)
         self.pads = self.construct_pads(conv_div_ratio, number_of_grooves, viscosity, length)  
         self.load_capacity = self.bearing_load_capacity()
-  
+        self.hydro_regime = self.hydrodynamic_regime()
+
+    def hydrodynamic_regime(self):
+        hydrodynamic = False
+        regime_parameter = min_film_thick / (((rms_shaft_finish**2) + (rms_bearing_finish**2))**(0.5))
+        if regime_parameter > 5:
+            hydrodynamic = True
+        return hydrodynamic
+
     # 
     def construct_pads(self, conv_div_ratio, number_of_grooves, viscosity, length):
         pads = []
@@ -233,7 +206,6 @@ class BearingIteration():
                 leading_film_thickness, load_capacity, load_capacity_x, load_capacity_y, load_center, \
                 load_center_ratio, number, trailing_angle, trailing_film_thickness))
         return pads
-
 
     # provides the resultant bearing load capacity
     def bearing_load_capacity(self) -> float:
@@ -361,12 +333,12 @@ ureg = pint.UnitRegistry()
 
 def main():
     
-    shaft_diameter = 600 * ureg.mm
-    number_of_grooves = 30
-    shaft_speed = 200 * ureg.rpm
-    diametric_clearance = 0.2 * ureg.mm
-    groove_width = 10 * ureg.mm
-    bearing_length = 600 * ureg.mm
+    shaft_diameter = 3.125 * ureg.inch
+    number_of_grooves = 6
+    shaft_speed = 1200 * ureg.rpm
+    diametric_clearance = 0.004 * ureg.inch
+    groove_width = 0.375 * ureg.inch
+    bearing_length = 5.475 * ureg.inch
     viscosity = 0.009967 * ureg.poise
 
     calc = BearingSolution(diametric_clearance, groove_width, bearing_length, number_of_grooves, \
